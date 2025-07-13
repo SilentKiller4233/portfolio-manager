@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+{% block title %}Edit {{ asset.symbol | upper }}{% endblock %}
+{% block content %}
+<h2>Edit Asset: {{ asset.symbol | upper }}</h2>
+
+<form method="post" class="form">
+    <label for="quantity">Quantity</label>
+    <input type="number" name="quantity" id="quantity" step="any" value="{{ asset.quantity }}" required>
+
+    <label for="avg_buy_price">Average Buy Price (USD)</label>
+    <input type="number" name="avg_buy_price" id="avg_buy_price" step="any" value="{{ asset.avg_buy_price }}" required>
+
+    <button type="submit">Update</button>
+    <a href="/dashboard">Cancel</a>
+</form>
+{% endblock %}

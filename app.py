@@ -104,6 +104,69 @@ def dashboard():
     portfolio, total_value = get_portfolio(user_id)
     return render_template("dashboard.html", portfolio=portfolio, total=total_value)
 
+# ---------------------- EDIT ASSET ---------------------- #
+@app.route("/edit/<symbol>", methods=["GET", "POST"])
+@login_required
+def edit_asset(symbol):
+    asset_type = request.args.get("type")
+    if not asset_type:
+        flash("Asset type is required.", "danger")
+        return redirect("/dashboard")
+
+    db = get_db_connection()
+    user_id = session["user_id"]
+    asset = db.execute("""
+        SELECT * FROM assets
+        WHERE user_id = ? AND symbol = ? AND asset_type = ?
+    """, (user_id, symbol.lower(), asset_type)).fetchone()
+
+    if not asset:
+        flash("Asset not found.", "danger")
+        return redirect("/dashboard")
+
+    if request.method == "POST":
+        try:
+            quantity = float(request.form["quantity"])
+            avg_price = float(request.form["avg_buy_price"])
+        except ValueError:
+            flash("Invalid input.", "danger")
+            return redirect(request.url)
+
+        if quantity <= 0 or avg_price <= 0:
+            flash("Values must be positive.", "danger")
+            return redirect(request.url)
+
+        db.execute("""
+            UPDATE assets
+            SET quantity = ?, avg_buy_price = ?
+            WHERE user_id = ? AND symbol = ? AND asset_type = ?
+        """, (quantity, avg_price, user_id, symbol.lower(), asset_type))
+        db.commit()
+        flash("Asset updated successfully.", "success")
+        return redirect("/dashboard")
+
+    return render_template("edit_asset.html", asset=asset)
+
+# ---------------------- DELETE ASSET ---------------------- #
+@app.route("/delete/<symbol>", methods=["POST"])
+@login_required
+def delete_asset(symbol):
+    asset_type = request.args.get("type")
+    if not asset_type:
+        flash("Asset type is required.", "danger")
+        return redirect("/dashboard")
+
+    db = get_db_connection()
+    user_id = session["user_id"]
+    db.execute("""
+        DELETE FROM assets
+        WHERE user_id = ? AND symbol = ? AND asset_type = ?
+    """, (user_id, symbol.lower(), asset_type))
+    db.commit()
+    flash("Asset deleted.", "info")
+    return redirect("/dashboard")
+
+
 
 # ---------------------- ADD ASSET (Updated with Manual Buy Price) ---------------------- #
 @app.route("/add", methods=["GET", "POST"])
