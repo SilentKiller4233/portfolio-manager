@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% block title %}Add Asset{% endblock %}
+{% block content %}
+<h2>Add Asset</h2>
+
+<form action="/add" method="post" class="form">
+    <label for="symbol">Symbol</label>
+    <input type="text" name="symbol" id="symbol" required placeholder="e.g. AAPL or bitcoin">
+
+    <label for="quantity">Quantity</label>
+    <input type="number" name="quantity" id="quantity" step="any" required>
+
+    <label for="asset_type">Type</label>
+    <select name="asset_type" id="asset_type" required>
+        <option value="">Select Type</option>
+        <option value="stock">Stock</option>
+        <option value="crypto">Crypto</option>
+    </select>
+
+    <button type="submit">Add</button>
+</form>
+
+<p><a href="/dashboard">← Back to Dashboard</a></p>
+{% endblock %}

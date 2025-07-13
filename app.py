@@ -137,6 +137,71 @@ def dashboard():
 
     return render_template("dashboard.html", portfolio=portfolio, total=round(total_value, 2))
 
+# ---------------------- ADD ASSET ---------------------- #
+@app.route("/add", methods=["GET", "POST"])
+@login_required
+def add_asset():
+    if request.method == "POST":
+        symbol = request.form["symbol"].strip().lower()
+        try:
+            quantity = float(request.form["quantity"])
+        except ValueError:
+            flash("Invalid quantity.", "danger")
+            return redirect("/add")
+
+        asset_type = request.form["asset_type"]
+
+        if not symbol or quantity <= 0 or asset_type not in ["stock", "crypto"]:
+            flash("All fields are required and must be valid.", "danger")
+            return redirect("/add")
+
+        db = get_db()
+        user_id = session["user_id"]
+
+        # Check if this asset already exists for the user
+        existing = db.execute("""
+            SELECT quantity, avg_buy_price FROM assets
+            WHERE user_id = ? AND symbol = ? AND asset_type = ?
+        """, (user_id, symbol, asset_type)).fetchone()
+
+        if existing:
+            old_qty = existing["quantity"]
+            old_avg = existing["avg_buy_price"]
+
+            # Prompt user to enter buy price in future version
+            current_price = get_crypto_price(symbol) if asset_type == "crypto" else get_stock_price(symbol)
+            if not current_price:
+                flash("Could not fetch current price.", "danger")
+                return redirect("/add")
+
+            total_cost = old_qty * old_avg + quantity * current_price
+            total_quantity = old_qty + quantity
+            new_avg = total_cost / total_quantity
+
+            db.execute("""
+                UPDATE assets
+                SET quantity = ?, avg_buy_price = ?
+                WHERE user_id = ? AND symbol = ? AND asset_type = ?
+            """, (total_quantity, new_avg, user_id, symbol, asset_type))
+        else:
+            # Insert new asset with current price as buy price
+            current_price = get_crypto_price(symbol) if asset_type == "crypto" else get_stock_price(symbol)
+            if not current_price:
+                flash("Could not fetch current price.", "danger")
+                return redirect("/add")
+
+            db.execute("""
+                INSERT INTO assets (user_id, symbol, quantity, avg_buy_price, asset_type)
+                VALUES (?, ?, ?, ?, ?)
+            """, (user_id, symbol, quantity, current_price, asset_type))
+
+        db.commit()
+        flash("Asset added successfully.", "success")
+        return redirect("/dashboard")
+
+    return render_template("add_asset.html")
+
+
 # ---------------------- PRICE HELPERS ---------------------- #
 def get_crypto_price(symbol):
     try:
