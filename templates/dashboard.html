@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+<h2>Your Portfolio</h2>
+
+{% if portfolio %}
+<table class="table">
+    <thead>
+        <tr>
+            <th>Symbol</th>
+            <th>Type</th>
+            <th>Quantity</th>
+            <th>Avg Buy Price ($)</th>
+            <th>Current Price ($)</th>
+            <th>Current Value ($)</th>
+            <th>Unrealized PnL ($)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for asset in portfolio %}
+        <tr>
+            <td>{{ asset.symbol }}</td>
+            <td>{{ asset.type }}</td>
+            <td>{{ "%.4f"|format(asset.quantity) }}</td>
+            <td>{{ "%.2f"|format(asset.avg_price) }}</td>
+            <td>
+              {% if asset.current_price != "N/A" %}
+                  {{ "%.2f"|format(asset.current_price) }}
+              {% else %}
+                  N/A
+              {% endif %}
+            </td>
+            <td>{{ "%.2f"|format(asset.current_value) }}</td>
+            <td class="{% if asset.unrealized_pnl < 0 %}loss{% else %}gain{% endif %}">
+                {{ "%.2f"|format(asset.unrealized_pnl) }}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Total Portfolio Value: ${{ "%.2f"|format(total) }}</h3>
+
+{% else %}
+<p>You have no assets yet. <a href="/add">Add your first asset</a>.</p>
+{% endif %}
+
+{% endblock %}
