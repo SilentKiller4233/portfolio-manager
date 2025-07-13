@@ -176,6 +176,15 @@ def delete_asset(symbol):
     flash("Asset deleted.", "info")
     return redirect("/dashboard")
 
+# ---------------------- REFRESH PRICES ---------------------- #
+@app.route("/refresh", methods=["POST"])
+@login_required
+def refresh_prices():
+    flash("Prices refreshed successfully.", "info")
+    return redirect("/dashboard")
+
+
+
 # ---------------------- FLASK SETTINGS ---------------------- #
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
