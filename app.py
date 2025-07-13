@@ -1,24 +1,21 @@
-from helpers import get_db_connection
-from flask import Flask, render_template, redirect, request, session, flash, url_for
+from helpers import (
+    get_db_connection,
+    get_crypto_price,
+    get_stock_price,
+    get_portfolio,
+    update_or_insert_asset
+)
+
+from flask import Flask, render_template, redirect, request, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
-
 import sqlite3
-import requests
-import yfinance as yf
-import os
 
 app = Flask(__name__)
 app.secret_key = "this-is-a-fixed-dev-key-123"
-DATABASE = "portfolio.db"
 
-# ---------------------- DB CONNECTION ---------------------- #
-def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
 
-# ---------------------- LOGIN REQUIRED ---------------------- #
+# ---------------------- LOGIN REQUIRED DECORATOR ---------------------- #
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -27,12 +24,12 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
 # ---------------------- INDEX REDIRECT ---------------------- #
 @app.route("/")
 def index():
-    if "user_id" in session:
-        return redirect("/dashboard")
-    return redirect("/login")
+    return redirect("/dashboard") if "user_id" in session else redirect("/login")
+
 
 # ---------------------- REGISTER ---------------------- #
 @app.route("/register", methods=["GET", "POST"])
@@ -45,14 +42,13 @@ def register():
         if not username or not password or not confirm:
             flash("All fields required.", "danger")
             return redirect("/register")
-
         if password != confirm:
             flash("Passwords do not match.", "danger")
             return redirect("/register")
 
-        db = get_db()
-        cursor = db.execute("SELECT id FROM users WHERE username = ?", (username,))
-        if cursor.fetchone():
+        db = get_db_connection()
+        user = db.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+        if user:
             flash("Username already taken.", "danger")
             return redirect("/register")
 
@@ -63,6 +59,7 @@ def register():
         return redirect("/login")
 
     return render_template("register.html")
+
 
 # ---------------------- LOGIN ---------------------- #
 @app.route("/login", methods=["GET", "POST"])
@@ -75,9 +72,9 @@ def login():
             flash("Please fill in both fields", "danger")
             return redirect("/login")
 
-        conn = get_db_connection()
-        user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
-        conn.close()
+        db = get_db_connection()
+        user = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        db.close()
 
         if user and check_password_hash(user["hash"], password):
             session["user_id"] = user["id"]
@@ -98,67 +95,39 @@ def logout():
     flash("Logged out successfully.", "info")
     return redirect("/login")
 
+
 # ---------------------- DASHBOARD ---------------------- #
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    db = get_db()
     user_id = session["user_id"]
-    assets = db.execute("SELECT * FROM assets WHERE user_id = ?", (user_id,)).fetchall()
+    portfolio, total_value = get_portfolio(user_id)
+    return render_template("dashboard.html", portfolio=portfolio, total=total_value)
 
-    portfolio = []
-    total_value = 0.0
 
-    for asset in assets:
-        symbol = asset["symbol"]
-        quantity = asset["quantity"]
-        avg_price = asset["avg_buy_price"]
-        type_ = asset["asset_type"]
-
-        if type_ == "crypto":
-            price = get_crypto_price(symbol)
-        else:
-            price = get_stock_price(symbol)
-
-        current_value = quantity * price if price else 0
-        unrealized = (price - avg_price) * quantity if price else 0
-
-        portfolio.append({
-            "symbol": symbol.upper(),
-            "type": type_,
-            "quantity": quantity,
-            "avg_price": round(avg_price, 2),
-            "current_price": round(price, 2) if price else "N/A",
-            "current_value": round(current_value, 2),
-            "unrealized_pnl": round(unrealized, 2),
-        })
-
-        total_value += current_value
-
-    return render_template("dashboard.html", portfolio=portfolio, total=round(total_value, 2))
-
-# ---------------------- ADD ASSET ---------------------- #
+# ---------------------- ADD ASSET (Updated with Manual Buy Price) ---------------------- #
 @app.route("/add", methods=["GET", "POST"])
 @login_required
 def add_asset():
     if request.method == "POST":
         symbol = request.form["symbol"].strip().lower()
+        asset_type = request.form["asset_type"]
+        user_id = session["user_id"]
+
         try:
             quantity = float(request.form["quantity"])
+            buy_price = float(request.form["buy_price"])
         except ValueError:
-            flash("Invalid quantity.", "danger")
+            flash("Invalid quantity or buy price.", "danger")
             return redirect("/add")
 
-        asset_type = request.form["asset_type"]
-
-        if not symbol or quantity <= 0 or asset_type not in ["stock", "crypto"]:
+        if not symbol or quantity <= 0 or buy_price <= 0 or asset_type not in ["stock", "crypto"]:
             flash("All fields are required and must be valid.", "danger")
             return redirect("/add")
 
-        db = get_db()
-        user_id = session["user_id"]
+        db = get_db_connection()
 
-        # Check if this asset already exists for the user
+
         existing = db.execute("""
             SELECT quantity, avg_buy_price FROM assets
             WHERE user_id = ? AND symbol = ? AND asset_type = ?
@@ -168,13 +137,7 @@ def add_asset():
             old_qty = existing["quantity"]
             old_avg = existing["avg_buy_price"]
 
-            # Prompt user to enter buy price in future version
-            current_price = get_crypto_price(symbol) if asset_type == "crypto" else get_stock_price(symbol)
-            if not current_price:
-                flash("Could not fetch current price.", "danger")
-                return redirect("/add")
-
-            total_cost = old_qty * old_avg + quantity * current_price
+            total_cost = old_qty * old_avg + quantity * buy_price
             total_quantity = old_qty + quantity
             new_avg = total_cost / total_quantity
 
@@ -184,16 +147,10 @@ def add_asset():
                 WHERE user_id = ? AND symbol = ? AND asset_type = ?
             """, (total_quantity, new_avg, user_id, symbol, asset_type))
         else:
-            # Insert new asset with current price as buy price
-            current_price = get_crypto_price(symbol) if asset_type == "crypto" else get_stock_price(symbol)
-            if not current_price:
-                flash("Could not fetch current price.", "danger")
-                return redirect("/add")
-
             db.execute("""
                 INSERT INTO assets (user_id, symbol, quantity, avg_buy_price, asset_type)
                 VALUES (?, ?, ?, ?, ?)
-            """, (user_id, symbol, quantity, current_price, asset_type))
+            """, (user_id, symbol, quantity, buy_price, asset_type))
 
         db.commit()
         flash("Asset added successfully.", "success")
@@ -202,26 +159,10 @@ def add_asset():
     return render_template("add_asset.html")
 
 
-# ---------------------- PRICE HELPERS ---------------------- #
-def get_crypto_price(symbol):
-    try:
-        url = f"https://api.coingecko.com/api/v3/simple/price?ids={symbol.lower()}&vs_currencies=usd"
-        response = requests.get(url)
-        data = response.json()
-        return data[symbol.lower()]["usd"]
-    except:
-        return None
-
-def get_stock_price(symbol):
-    try:
-        stock = yf.Ticker(symbol)
-        return stock.info["regularMarketPrice"]
-    except:
-        return None
 
 
-# ---------------------- APP RUN ---------------------- #
+# ---------------------- FLASK SETTINGS ---------------------- #
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=True)
 
