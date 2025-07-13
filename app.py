@@ -1,13 +1,15 @@
+from helpers import get_db_connection
 from flask import Flask, render_template, redirect, request, session, flash, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+
 import sqlite3
 import requests
 import yfinance as yf
 import os
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = "this-is-a-fixed-dev-key-123"
 DATABASE = "portfolio.db"
 
 # ---------------------- DB CONNECTION ---------------------- #
@@ -65,24 +67,29 @@ def register():
 # ---------------------- LOGIN ---------------------- #
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    session.clear()
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+        username = request.form.get("username")
+        password = request.form.get("password")
 
-        db = get_db()
-        cursor = db.execute("SELECT * FROM users WHERE username = ?", (username,))
-        user = cursor.fetchone()
-
-        if user is None or not check_password_hash(user["hash"], password):
-            flash("Invalid username or password.", "danger")
+        if not username or not password:
+            flash("Please fill in both fields", "danger")
             return redirect("/login")
 
-        session["user_id"] = user["id"]
-        session["username"] = user["username"]
-        return redirect("/dashboard")
+        conn = get_db_connection()
+        user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        conn.close()
+
+        if user and check_password_hash(user["hash"], password):
+            session["user_id"] = user["id"]
+            session["username"] = user["username"]
+            flash("Logged in successfully!", "success")
+            return redirect("/dashboard")
+        else:
+            flash("Invalid username or password", "danger")
+            return redirect("/login")
 
     return render_template("login.html")
+
 
 # ---------------------- LOGOUT ---------------------- #
 @app.route("/logout")
@@ -147,6 +154,9 @@ def get_stock_price(symbol):
     except:
         return None
 
+
 # ---------------------- APP RUN ---------------------- #
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 if __name__ == "__main__":
     app.run(debug=True)
+
