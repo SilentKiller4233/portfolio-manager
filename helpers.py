@@ -1,12 +1,16 @@
 import sqlite3
 import requests
 import yfinance as yf
+from flask import session, redirect, flash
+from functools import wraps
 
+# ---------------------- DB CONNECTION ---------------------- #
 def get_db_connection():
     conn = sqlite3.connect("portfolio.db")
     conn.row_factory = sqlite3.Row
     return conn
 
+# ---------------------- PRICE HELPERS ---------------------- #
 def get_crypto_price(symbol):
     try:
         url = f"https://api.coingecko.com/api/v3/simple/price?ids={symbol.lower()}&vs_currencies=usd"
@@ -23,10 +27,21 @@ def get_stock_price(symbol):
     except:
         return None
 
+# ---------------------- LOGIN REQUIRED DECORATOR ---------------------- #
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            flash("You must be logged in to access this page.", "warning")
+            return redirect("/login")
+        return f(*args, **kwargs)
+    return decorated_function
+
+# ---------------------- PORTFOLIO SUMMARY ---------------------- #
 def get_portfolio(user_id):
     db = get_db_connection()
     assets = db.execute("SELECT * FROM assets WHERE user_id = ?", (user_id,)).fetchall()
-    
+
     portfolio = []
     total_value = 0.0
 
@@ -49,11 +64,13 @@ def get_portfolio(user_id):
             "current_value": round(current_value, 2),
             "unrealized_pnl": round(unrealized, 2),
         })
+
         total_value += current_value
 
     return portfolio, round(total_value, 2)
 
-def update_or_insert_asset(user_id, symbol, quantity, asset_type):
+# ---------------------- ADD OR UPDATE ASSET ---------------------- #
+def add_or_update_asset(user_id, symbol, quantity, buy_price, asset_type):
     db = get_db_connection()
 
     existing = db.execute("""
@@ -61,14 +78,10 @@ def update_or_insert_asset(user_id, symbol, quantity, asset_type):
         WHERE user_id = ? AND symbol = ? AND asset_type = ?
     """, (user_id, symbol, asset_type)).fetchone()
 
-    price = get_crypto_price(symbol) if asset_type == "crypto" else get_stock_price(symbol)
-    if not price:
-        return False
-
     if existing:
         old_qty = existing["quantity"]
         old_avg = existing["avg_buy_price"]
-        total_cost = old_qty * old_avg + quantity * price
+        total_cost = old_qty * old_avg + quantity * buy_price
         total_quantity = old_qty + quantity
         new_avg = total_cost / total_quantity
 
@@ -81,7 +94,6 @@ def update_or_insert_asset(user_id, symbol, quantity, asset_type):
         db.execute("""
             INSERT INTO assets (user_id, symbol, quantity, avg_buy_price, asset_type)
             VALUES (?, ?, ?, ?, ?)
-        """, (user_id, symbol, quantity, price, asset_type))
+        """, (user_id, symbol, quantity, buy_price, asset_type))
 
     db.commit()
-    return True
