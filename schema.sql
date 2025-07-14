@@ -1,6 +1,8 @@
 -- Drop tables if they exist (for reset/testing)
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS assets;
+DROP TABLE IF EXISTS transactions;
+
 
 -- Users table: stores registered user accounts
 CREATE TABLE users (
@@ -21,7 +23,7 @@ CREATE TABLE assets (
 );
 
 -- Transactions table: stores buy/sell transactions
-CREATE TABLE IF NOT EXISTS transactions (
+CREATE TABLE transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     symbol TEXT NOT NULL,
