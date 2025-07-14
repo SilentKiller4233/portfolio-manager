@@ -1,36 +1,60 @@
 {% extends "layout.html" %}
-{% block title %}Transaction History{% endblock %}
+{% block title %}Transactions{% endblock %}
 {% block content %}
 
-<h2>Transaction History</h2>
+<h2>Your Transactions</h2>
 
 {% if transactions %}
 <table class="table">
     <thead>
         <tr>
-            <th>Timestamp</th>
+            <th>Date</th>
             <th>Symbol</th>
+            <th>Asset Type</th>
+            <th>Direction</th>
             <th>Quantity</th>
-            <th>Sell Price ($)</th>
+            <th>Price ($)</th>
+            <th>Cost Basis ($)</th>
             <th>Realized PnL ($)</th>
         </tr>
     </thead>
     <tbody>
-        {% for tx in transactions %}
+        {% for txn in transactions %}
         <tr>
-            <td>{{ tx.timestamp }}</td>
-            <td>{{ tx.symbol.upper() }}</td>
-            <td>{{ "%.4f"|format(tx.quantity) }}</td>
-            <td>{{ "%.2f"|format(tx.sell_price) }}</td>
-            <td class="{% if tx.realized_pnl < 0 %}loss{% else %}gain{% endif %}">
-                {{ "%.2f"|format(tx.realized_pnl) }}
+            <td>{{ txn.date }}</td>
+            <td>{{ txn.symbol }}</td>
+            <td>{{ txn.asset_type|capitalize }}</td>
+            <td>{{ "Sell" if txn.sell_price > 0 else "Buy" }}</td>
+            <td>{{ "%.4f"|format(txn.quantity) }}</td>
+            <td>
+                {% if txn.sell_price > 0 %}
+                    {{ "%.2f"|format(txn.sell_price) }}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td>
+                {% if txn.sell_price > 0 %}
+                    {{ "%.2f"|format(txn.cost_basis) }}
+                {% else %}
+                    {{ "%.2f"|format(txn.cost_basis) }}
+                {% endif %}
+            </td>
+            <td>
+                {% if txn.sell_price > 0 %}
+                    <span class="{{ 'gain' if txn.realized_pnl >= 0 else 'loss' }}">
+                        {{ "%.2f"|format(txn.realized_pnl) }}
+                    </span>
+                {% else %}
+                    -
+                {% endif %}
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 {% else %}
-<p>No transactions yet.</p>
+<p>You have no transactions yet.</p>
 {% endif %}
 
 {% endblock %}

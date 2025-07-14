@@ -4,14 +4,20 @@ import yfinance as yf
 from flask import session, redirect, flash
 from functools import wraps
 
-# ---------------------- DB CONNECTION ---------------------- #
+# ---------------------- DATABASE CONNECTION ---------------------- #
 def get_db_connection():
+    """Establish a connection to the SQLite database."""
     conn = sqlite3.connect("portfolio.db")
     conn.row_factory = sqlite3.Row
     return conn
 
-# ---------------------- PRICE HELPERS ---------------------- #
+
+# ---------------------- PRICE FETCHING ---------------------- #
 def get_crypto_price(symbol):
+    """
+    Fetch current USD price for a given cryptocurrency using CoinGecko.
+    Returns None on failure.
+    """
     try:
         url = f"https://api.coingecko.com/api/v3/simple/price?ids={symbol.lower()}&vs_currencies=usd"
         response = requests.get(url)
@@ -21,14 +27,23 @@ def get_crypto_price(symbol):
         return None
 
 def get_stock_price(symbol):
+    """
+    Fetch current price for a given stock symbol using yfinance.
+    Returns None on failure.
+    """
     try:
         stock = yf.Ticker(symbol)
         return stock.info["regularMarketPrice"]
     except:
         return None
 
-# ---------------------- LOGIN REQUIRED DECORATOR ---------------------- #
+
+# ---------------------- AUTHENTICATION DECORATOR ---------------------- #
 def login_required(f):
+    """
+    Flask decorator to enforce login on protected routes.
+    Redirects to login if user_id not in session.
+    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "user_id" not in session:
@@ -37,10 +52,17 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
 # ---------------------- PORTFOLIO SUMMARY ---------------------- #
 def get_portfolio(user_id):
+    """
+    Returns a list of all user-held assets with updated prices and unrealized PnL.
+    Also returns total current portfolio value.
+    """
     db = get_db_connection()
-    assets = db.execute("SELECT * FROM assets WHERE user_id = ?", (user_id,)).fetchall()
+    assets = db.execute(
+        "SELECT * FROM assets WHERE user_id = ?", (user_id,)
+    ).fetchall()
 
     portfolio = []
     total_value = 0.0
@@ -49,30 +71,33 @@ def get_portfolio(user_id):
         symbol = asset["symbol"]
         quantity = asset["quantity"]
         avg_price = asset["avg_buy_price"]
-        type_ = asset["asset_type"]
+        asset_type = asset["asset_type"]
 
-        price = get_crypto_price(symbol) if type_ == "crypto" else get_stock_price(symbol)
-        current_value = quantity * price if price else 0
-        unrealized = (price - avg_price) * quantity if price else 0
+        current_price = get_crypto_price(symbol) if asset_type == "crypto" else get_stock_price(symbol)
+        current_value = quantity * current_price if current_price else 0
+        unrealized_pnl = (current_price - avg_price) * quantity if current_price else 0
 
         portfolio.append({
             "symbol": symbol.upper(),
-            "type": type_,
+            "type": asset_type,
             "quantity": quantity,
             "avg_price": round(avg_price, 2),
-            "current_price": round(price, 2) if price else "N/A",
+            "current_price": round(current_price, 2) if current_price else "N/A",
             "current_value": round(current_value, 2),
-            "unrealized_pnl": round(unrealized, 2),
+            "unrealized_pnl": round(unrealized_pnl, 2),
         })
 
         total_value += current_value
 
     return portfolio, round(total_value, 2)
 
+
 # ---------------------- ADD OR UPDATE ASSET ---------------------- #
 def add_or_update_asset(user_id, symbol, quantity, buy_price, asset_type):
+    """
+    Adds a new asset or updates existing one by recalculating average buy price.
+    """
     db = get_db_connection()
-
     existing = db.execute("""
         SELECT quantity, avg_buy_price FROM assets
         WHERE user_id = ? AND symbol = ? AND asset_type = ?
@@ -98,12 +123,18 @@ def add_or_update_asset(user_id, symbol, quantity, buy_price, asset_type):
 
     db.commit()
 
+
+# ---------------------- TRANSACTION HISTORY ---------------------- #
 def get_transaction_history(user_id):
+    """
+    Returns a user's historical sell transactions ordered by most recent.
+    """
     db = get_db_connection()
     transactions = db.execute("""
-        SELECT symbol, quantity, sell_price, realized_pnl, date
+        SELECT symbol, quantity, sell_price, realized_pnl, date AS timestamp
         FROM transactions
         WHERE user_id = ?
         ORDER BY date DESC
     """, (user_id,)).fetchall()
+
     return transactions

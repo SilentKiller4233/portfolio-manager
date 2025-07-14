@@ -1,18 +1,54 @@
 {% extends "layout.html" %}
 {% block title %}Register{% endblock %}
+
 {% block content %}
-<h2>Register</h2>
-<form action="/register" method="post" class="form">
-    <label for="username">Username</label>
-    <input type="text" name="username" id="username" required>
+<div class="form-container">
+    <h2 style="margin-bottom: 1.5rem; text-align: center;">Create a New Account</h2>
 
-    <label for="password">Password</label>
-    <input type="password" name="password" id="password" required>
+    <form action="/register" method="post">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input 
+                type="text" 
+                id="username" 
+                name="username" 
+                placeholder="Choose a username" 
+                required 
+                autocomplete="username"
+            >
+        </div>
 
-    <label for="confirmation">Confirm Password</label>
-    <input type="password" name="confirmation" id="confirmation" required>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input 
+                type="password" 
+                id="password" 
+                name="password" 
+                placeholder="Create a password" 
+                required 
+                autocomplete="new-password"
+            >
+        </div>
 
-    <button type="submit">Register</button>
-</form>
-<p>Already have an account? <a href="/login">Login here</a>.</p>
+        <div class="form-group">
+            <label for="confirmation">Confirm Password</label>
+            <input 
+                type="password" 
+                id="confirmation" 
+                name="confirmation" 
+                placeholder="Confirm your password" 
+                required 
+                autocomplete="new-password"
+            >
+        </div>
+
+        <div style="text-align: center;">
+            <input type="submit" value="Register">
+        </div>
+    </form>
+
+    <p style="margin-top: 1.5rem; text-align: center;">
+        Already have an account? <a href="/login">Login here</a>.
+    </p>
+</div>
 {% endblock %}
