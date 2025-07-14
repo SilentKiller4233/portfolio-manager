@@ -19,3 +19,17 @@ CREATE TABLE assets (
     avg_buy_price REAL,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
+-- Transactions table: stores buy/sell transactions
+CREATE TABLE IF NOT EXISTS transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    symbol TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    sell_price REAL NOT NULL,
+    cost_basis REAL NOT NULL,
+    realized_pnl REAL NOT NULL,
+    date TEXT DEFAULT (datetime('now')),
+    asset_type TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
