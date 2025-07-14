@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% block title %}Sell {{ asset.symbol | upper }}{% endblock %}
+{% block content %}
+<h2>Sell {{ asset.symbol | upper }}</h2>
+<form action="" method="post" class="form">
+    <label for="quantity">Quantity to Sell</label>
+    <input type="number" name="quantity" step="0.0001" required>
+
+    <label for="price">Sell Price (USD)</label>
+    <input type="number" name="price" step="0.01" required>
+
+    <button type="submit">Sell</button>
+</form>
+<p><a href="/dashboard">Back to Dashboard</a></p>
+{% endblock %}

@@ -176,6 +176,74 @@ def delete_asset(symbol):
     flash("Asset deleted.", "info")
     return redirect("/dashboard")
 
+# ---------------------- SELL ASSET ---------------------- #
+
+@app.route("/sell/<symbol>", methods=["GET", "POST"])
+@login_required
+def sell_asset(symbol):
+    asset_type = request.args.get("type")
+    if not asset_type:
+        flash("Asset type required.", "danger")
+        return redirect("/dashboard")
+
+    db = get_db_connection()
+    user_id = session["user_id"]
+    asset = db.execute("""
+        SELECT * FROM assets
+        WHERE user_id = ? AND symbol = ? AND asset_type = ?
+    """, (user_id, symbol.lower(), asset_type)).fetchone()
+
+    if not asset:
+        flash("Asset not found.", "danger")
+        return redirect("/dashboard")
+
+    if request.method == "POST":
+        try:
+            sell_qty = float(request.form["quantity"])
+            sell_price = float(request.form["price"])
+        except ValueError:
+            flash("Invalid input.", "danger")
+            return redirect(request.url)
+
+        if sell_qty <= 0 or sell_price <= 0:
+            flash("Values must be positive.", "danger")
+            return redirect(request.url)
+
+        if sell_qty > asset["quantity"]:
+            flash("You cannot sell more than you own.", "danger")
+            return redirect(request.url)
+
+        remaining_qty = asset["quantity"] - sell_qty
+        avg_price = asset["avg_buy_price"]
+        cost_basis = sell_qty * avg_price
+        proceeds = sell_qty * sell_price
+        realized_pnl = proceeds - cost_basis
+
+        # Update or delete asset
+        if remaining_qty == 0:
+            db.execute("""
+                DELETE FROM assets
+                WHERE user_id = ? AND symbol = ? AND asset_type = ?
+            """, (user_id, symbol.lower(), asset_type))
+        else:
+            db.execute("""
+                UPDATE assets
+                SET quantity = ?
+                WHERE user_id = ? AND symbol = ? AND asset_type = ?
+            """, (remaining_qty, user_id, symbol.lower(), asset_type))
+
+        # Log transaction
+        db.execute("""
+            INSERT INTO transactions (user_id, symbol, quantity, sell_price, cost_basis, realized_pnl, asset_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (user_id, symbol.lower(), sell_qty, sell_price, cost_basis, realized_pnl, asset_type))
+
+        db.commit()
+        flash(f"Sold {sell_qty} {symbol.upper()} for ${proceeds:.2f} — Realized PnL: ${realized_pnl:.2f}", "success")
+        return redirect("/dashboard")
+
+    return render_template("sell_asset.html", asset=asset)
+
 # ---------------------- REFRESH PRICES ---------------------- #
 @app.route("/refresh", methods=["POST"])
 @login_required
