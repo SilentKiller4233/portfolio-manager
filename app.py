@@ -1,4 +1,3 @@
-import os
 from flask import Flask, render_template, redirect, request, session, flash
 from werkzeug.security import generate_password_hash, check_password_hash
 from helpers import (
@@ -12,7 +11,7 @@ from helpers import (
 )
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "dev-only-secret")
+app.secret_key = "this-is-a-fixed-dev-key-123"
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 
