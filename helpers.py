@@ -97,3 +97,13 @@ def add_or_update_asset(user_id, symbol, quantity, buy_price, asset_type):
         """, (user_id, symbol, quantity, buy_price, asset_type))
 
     db.commit()
+
+def get_transaction_history(user_id):
+    db = get_db_connection()
+    transactions = db.execute("""
+        SELECT symbol, quantity, sell_price, realized_pnl, date
+        FROM transactions
+        WHERE user_id = ?
+        ORDER BY date DESC
+    """, (user_id,)).fetchall()
+    return transactions

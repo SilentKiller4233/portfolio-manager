@@ -7,7 +7,8 @@ from helpers import (
     get_stock_price,
     get_portfolio,
     login_required,
-    add_or_update_asset
+    add_or_update_asset,
+    get_transaction_history
 )
 
 app = Flask(__name__)
@@ -87,6 +88,16 @@ def dashboard():
     user_id = session["user_id"]
     portfolio, total_value = get_portfolio(user_id)
     return render_template("dashboard.html", portfolio=portfolio, total=total_value)
+
+# ---------------------- TRANSACTIONS ---------------------- #
+
+@app.route("/transactions")
+@login_required
+def transactions():
+    user_id = session["user_id"]
+    transactions = get_transaction_history(user_id)
+    return render_template("transactions.html", transactions=transactions)
+
 
 # ---------------------- ADD ASSET ---------------------- #
 @app.route("/add", methods=["GET", "POST"])

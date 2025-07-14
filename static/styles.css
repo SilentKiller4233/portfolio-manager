@@ -24,22 +24,31 @@ main {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+}
+
+.nav-left,
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
 }
 
 .navbar a {
     color: #ecf0f1;
     text-decoration: none;
-    margin-left: 1rem;
 }
 
-.navbar .nav-left a {
+.navbar a:hover {
+    text-decoration: underline;
+}
+
+.logo {
     font-weight: bold;
     font-size: 1.2rem;
-    margin-left: 0;
 }
 
 .navbar .welcome {
-    margin-right: 1rem;
     font-style: italic;
 }
 
@@ -59,12 +68,11 @@ main {
     text-align: center;
 }
 
-
-
 .flash.success { background-color: #2ecc71; color: white; }
 .flash.danger  { background-color: #e74c3c; color: white; }
 .flash.info    { background-color: #3498db; color: white; }
 
+/* ---------- PORTFOLIO COLORS ---------- */
 .gain {
     color: green;
     font-weight: bold;
@@ -75,6 +83,7 @@ main {
     font-weight: bold;
 }
 
+/* ---------- FORMS ---------- */
 .form-container {
     max-width: 500px;
     margin: 0 auto;
