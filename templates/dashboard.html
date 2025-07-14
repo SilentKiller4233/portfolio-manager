@@ -4,9 +4,34 @@
 
 <h2 style="margin-bottom: 0.5rem;">Your Portfolio</h2>
 
+<form method="get" style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem;">
+    <select name="type">
+        <option value="">All Types</option>
+        <option value="crypto" {% if request.args.get('type') == 'crypto' %}selected{% endif %}>Crypto</option>
+        <option value="stock" {% if request.args.get('type') == 'stock' %}selected{% endif %}>Stock</option>
+    </select>
+
+    <select name="sort">
+        <option value="">Sort By</option>
+        <option value="symbol">Symbol</option>
+        <option value="quantity">Quantity</option>
+        <option value="avg_price">Avg Buy Price</option>
+        <option value="current_price">Current Price</option>
+        <option value="current_value">Current Value</option>
+        <option value="unrealized_pnl">Unrealized PnL</option>
+    </select>
+
+    <input type="text" name="search" placeholder="Search symbol..." value="{{ request.args.get('search', '') }}">
+
+    <button type="submit">Apply</button>
+</form>
+
+
 <form action="{{ url_for('refresh_prices') }}" method="post" style="margin: 1rem 0;">
     <button type="submit">🔄 Refresh Prices</button>
 </form>
+
+
 
 {% if portfolio %}
     <div style="overflow-x: auto;">

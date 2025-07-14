@@ -90,8 +90,65 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    portfolio, total = get_portfolio(session["user_id"])
-    return render_template("dashboard.html", portfolio=portfolio, total=total)
+    user_id = session["user_id"]
+    db = get_db_connection()
+
+    # Fetch all user assets
+    assets = db.execute("SELECT * FROM assets WHERE user_id = ?", (user_id,)).fetchall()
+
+    # Optional filters
+    asset_type = request.args.get("type")
+    sort_by = request.args.get("sort")
+    search = request.args.get("search", "").strip().lower()
+
+    portfolio = []
+    total_value = 0.0
+
+    for asset in assets:
+        symbol = asset["symbol"].upper()
+        quantity = asset["quantity"]
+        avg_price = asset["avg_buy_price"]
+        type_ = asset["asset_type"]
+
+        # Apply search filter
+        if search and search not in symbol.lower():
+            continue
+
+        # Apply type filter
+        if asset_type and asset_type != type_:
+            continue
+
+        # Price fetch logic
+        current_price = get_crypto_price(symbol)
+        if current_price is None:
+            current_price = get_stock_price(symbol)
+
+        if current_price is None:
+            current_price = "N/A"
+            current_value = 0.0
+            unrealized_pnl = 0.0
+        else:
+            current_value = round(current_price * quantity, 2)
+            unrealized_pnl = round((current_price - avg_price) * quantity, 2)
+            total_value += current_value
+
+        portfolio.append({
+            "symbol": symbol,
+            "type": type_,
+            "quantity": quantity,
+            "avg_price": avg_price,
+            "current_price": current_price,
+            "current_value": current_value,
+            "unrealized_pnl": unrealized_pnl
+        })
+
+    # Sorting logic
+    if sort_by:
+        reverse = True if sort_by in ["current_value", "unrealized_pnl", "current_price"] else False
+        portfolio.sort(key=lambda x: x.get(sort_by, 0.0), reverse=reverse)
+
+    return render_template("dashboard.html", portfolio=portfolio, total=total_value)
+
 
 
 # ---------------------- TRANSACTIONS ---------------------- #
@@ -176,7 +233,16 @@ def edit_asset(symbol):
         flash("Asset updated successfully.", "success")
         return redirect("/dashboard")
 
-    return render_template("edit_asset.html", asset=asset)
+    # 🛠 FIXED: Pass required vars to HTML
+    return render_template(
+        "edit_asset.html",
+        asset=asset,
+        symbol=symbol,
+        type=asset_type,
+        quantity=asset["quantity"],
+        avg_buy_price=asset["avg_buy_price"]
+    )
+
 
 
 # ---------------------- DELETE ASSET ---------------------- #
@@ -199,6 +265,7 @@ def delete_asset(symbol):
     return redirect("/dashboard")
 
 
+
 # ---------------------- SELL ASSET ---------------------- #
 @app.route("/sell/<symbol>", methods=["GET", "POST"])
 @login_required
@@ -207,13 +274,17 @@ def sell_asset(symbol):
 
     db = get_db_connection()
     user_id = session["user_id"]
+    asset_type = request.args.get("type")  # This comes from the dashboard link
 
-    # Check the current holding for the asset
+    if not asset_type:
+        flash("Missing asset type.", "danger")
+        return redirect("/dashboard")
+
+    # Get asset
     asset = db.execute(
-        "SELECT * FROM assets WHERE user_id = ? AND LOWER(symbol) = LOWER(?)",
-        (user_id, symbol)
+        "SELECT * FROM assets WHERE user_id = ? AND LOWER(symbol) = LOWER(?) AND asset_type = ?",
+        (user_id, symbol.lower(), asset_type)
     ).fetchone()
-
 
     if not asset:
         flash("Asset not found in your portfolio.", "danger")
@@ -224,34 +295,37 @@ def sell_asset(symbol):
             quantity_to_sell = float(request.form["quantity"])
         except ValueError:
             flash("Invalid quantity.", "danger")
-            return redirect(f"/sell/{symbol}")
+            return redirect(request.url)
 
         if quantity_to_sell <= 0:
             flash("Quantity must be greater than zero.", "danger")
-            return redirect(f"/sell/{symbol}")
+            return redirect(request.url)
 
         if quantity_to_sell > asset["quantity"]:
             flash("You do not have enough quantity to sell.", "danger")
-            return redirect(f"/sell/{symbol}")
+            return redirect(request.url)
 
-        # Use get_crypto_price or get_stock_price based on the symbol — fallback to crypto for now
+        # Get current price
         current_price = get_crypto_price(symbol)
         if current_price is None:
             current_price = get_stock_price(symbol)
-
         if current_price is None:
             flash("Could not retrieve current market price.", "danger")
-            return redirect(f"/sell/{symbol}")
+            return redirect(request.url)
 
+        # Calculate financials
+        avg_buy_price = asset["avg_buy_price"]
+        cost_basis = round(quantity_to_sell * avg_buy_price, 2)
         sale_value = round(quantity_to_sell * current_price, 2)
+        realized_pnl = round(sale_value - cost_basis, 2)
 
-        # Record the sale in transactions (we assume crypto for now)
+        # Insert into transactions
         db.execute(
-            "INSERT INTO transactions (user_id, symbol, type, quantity, price, action) VALUES (?, ?, ?, ?, ?, 'sell')",
-            (user_id, symbol.upper(), "crypto", quantity_to_sell, current_price)
+            "INSERT INTO transactions (user_id, symbol, quantity, sell_price, cost_basis, realized_pnl, asset_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user_id, symbol.upper(), quantity_to_sell, current_price, cost_basis, realized_pnl, asset_type)
         )
 
-        # Update or delete asset based on remaining quantity
+        # Update or delete asset
         remaining_quantity = asset["quantity"] - quantity_to_sell
         if remaining_quantity <= 0:
             db.execute("DELETE FROM assets WHERE id = ?", (asset["id"],))
@@ -263,8 +337,11 @@ def sell_asset(symbol):
         flash(f"Sold {quantity_to_sell} units of {symbol.upper()} for ${sale_value:.2f}.", "success")
         return redirect("/dashboard")
 
-    # GET: Show the sell form
-    return render_template("sell_asset.html", symbol=symbol.upper(), current_quantity=round(asset["quantity"], 4))
+    return render_template(
+        "sell_asset.html",
+        symbol=symbol.upper(),
+        current_quantity=round(asset["quantity"], 4)
+    )
 
 
 # ---------------------- REFRESH PRICES ---------------------- #

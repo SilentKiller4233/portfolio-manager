@@ -1,3 +1,4 @@
+
 /* ------------------------------
    GLOBAL STYLES
 ------------------------------ */
@@ -128,6 +129,41 @@ h2, h3 {
 }
 
 /* ------------------------------
+   FILTER/SORT/SEARCH
+------------------------------ */
+
+form[method="get"] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    background: #f9f9f9;
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+}
+
+form[method="get"] select,
+form[method="get"] input[type="text"],
+form[method="get"] button {
+    padding: 0.6rem 0.8rem;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+form[method="get"] button {
+    background-color: var(--info);
+    color: var(--white);
+    border: none;
+    cursor: pointer;
+}
+
+form[method="get"] button:hover {
+    background-color: #217dbb;
+}
+
+/* ------------------------------
    FLASH MESSAGES
 ------------------------------ */
 
@@ -151,7 +187,7 @@ h2, h3 {
 .flash.info    { background-color: var(--info); color: var(--white); }
 
 /* ------------------------------
-   FORM STYLING
+   FORMS
 ------------------------------ */
 
 .form-container {
@@ -203,57 +239,4 @@ input[type="submit"]:hover {
     color: var(--info);
     text-decoration: underline;
     cursor: pointer;
-}
-
-/* ------------------------------
-   DASHBOARD UI POLISH
------------------------------- */
-
-/* Compact cell spacing */
-.table th, .table td {
-    padding: 0.75rem 1rem;
-    font-size: 0.95rem;
-}
-
-/* Make headers more distinct */
-.table thead {
-    background-color: #eaeef3;
-    color: #34495e;
-    text-transform: uppercase;
-    font-size: 0.9rem;
-    letter-spacing: 0.5px;
-}
-
-/* Add hover feedback for action buttons */
-a.link {
-    padding: 0 0.2rem;
-    transition: color 0.2s;
-    font-weight: 500;
-}
-
-a.link:hover {
-    color: var(--info);
-}
-
-/* Align action buttons inside cells */
-.table td:last-child {
-    white-space: nowrap;
-}
-
-/* Highlight portfolio total */
-h3 span {
-    font-weight: bold;
-    font-size: 1.1rem;
-}
-
-/* Button tweaks */
-button {
-    font-weight: 500;
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-}
-
-button:disabled {
-    background-color: #bdc3c7;
-    cursor: not-allowed;
 }
