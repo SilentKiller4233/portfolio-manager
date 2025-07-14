@@ -1,41 +1,97 @@
-# 📊 Portfolio Manager
+# Portfolio Manager
 
-A Flask-based web app that allows users to manage their investments across stocks and cryptocurrencies. Built for CS50x final project, this app supports user authentication, portfolio tracking with financial calculations, and transactional history.
+Portfolio Manager is a Flask-based web application designed to help users track and manage their investments across stocks and cryptocurrencies. It allows users to record purchases, monitor current market value, track unrealized and realized gains, and view transaction history. This project was developed as a final submission for Harvard's CS50x course.
 
----
+## Features
 
-## 🚀 Features
+- User registration and login with password hashing
+- Add new assets (stock or crypto) with quantity and buy price
+- Edit, sell, or delete existing assets
+- Real-time market price fetching via CoinGecko (crypto) and yfinance (stocks)
+- Dashboard view with asset breakdown:
+  - Symbol, type, quantity
+  - Average buy price
+  - Live current price
+  - Current value
+  - Unrealized profit and loss (PnL)
+- Realized PnL tracked and displayed per transaction
+- Transactions page with complete buy/sell history
+- Refresh prices button for up-to-date portfolio values
+- Table sorting, filtering by type, and search by symbol
+- Responsive user interface with consistent design
 
-### 🧭 Core
-- **User Registration & Login** with hashed passwords
-- **Add Assets**: Specify symbol, type (stock/crypto), quantity, and buy price
-- **Edit / Sell / Delete Assets**
-- **Portfolio Dashboard**: Displays holdings, avg buy price, current price, quantity, current value, realized & unrealized PnL
-- **Transactions Log**: Tracks buy/sell operations with timestamp and realized gain/loss
-- **Live Price Fetching** via yfinance (stocks) & CoinGecko (crypto)
-- **Refresh Prices** button to get updated market values
-- **Client-side sorting & filtering** in dashboard
-- **Responsive UI** with clean layout and mobile improvements
+## Technologies Used
 
-### 🔧 Under the Hood
-- **SQLite database** (`portfolio.db`), defined in `schema.sql`
-- **Modular code structure**:
-  - `app.py` – Flask routes
-  - `helpers.py` – Database logic, price fetchers, portfolio/transaction utilities
-- **Custom CSS** for polished UI across layouts
+- Python, Flask, SQLite
+- HTML, CSS, JavaScript (vanilla)
+- Jinja2 templating
+- CoinGecko API and yfinance library
+- Bootstrap-inspired custom styling
 
----
+## Database Schema
 
-## 📦 Installation & Setup
+The application uses a SQLite database with tables:
 
-```bash
-git clone https://github.com/SilentKiller4233/portfolio-manager.git
-cd portfolio-manager
-python -m venv venv
-venv\Scripts\activate  # Windows
-# or on macOS/Linux: source venv/bin/activate
-pip install -r requirements.txt
-sqlite3 portfolio.db < schema.sql
-set FLASK_APP=app.py
-set FLASK_ENV=development
-flask run
+- `users`: Stores user credentials
+- `assets`: Stores active portfolio holdings per user
+- `transactions`: Records all buy and sell actions, including realized PnL
+
+Schema defined in `schema.sql`.
+
+## Setup Instructions
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/SilentKiller4233/portfolio-manager.git
+   cd portfolio-manager
+   ```
+
+2. Create and activate a virtual environment:
+
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate  # For Windows
+   # or
+   source venv/bin/activate  # For macOS/Linux
+   ```
+
+3. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Set up the database:
+
+   ```bash
+   sqlite3 portfolio.db < schema.sql
+   ```
+
+5. Run the Flask app:
+
+   ```bash
+   set FLASK_APP=app.py
+   set FLASK_ENV=development
+   flask run
+   ```
+
+   Then navigate to `http://127.0.0.1:5000` in your browser.
+
+## Project Structure
+
+- `app.py`: Main Flask application with route definitions
+- `helpers.py`: Helper functions for DB access and price fetching
+- `templates/`: HTML templates (Jinja2)
+- `static/styles.css`: Custom CSS for consistent UI
+- `schema.sql`: Database schema
+- `portfolio.db`: SQLite database
+
+## Usage
+
+- Register and log in to your account.
+- Add assets by entering their symbol, type, quantity, and average buy price.
+- View and manage assets through the dashboard.
+- Use the "Sell" button to reduce quantity and realize profit/loss.
+- Check transaction history for a log of buy and sell actions.
+
