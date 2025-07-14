@@ -93,10 +93,8 @@ def dashboard():
     user_id = session["user_id"]
     db = get_db_connection()
 
-    # Fetch all user assets
     assets = db.execute("SELECT * FROM assets WHERE user_id = ?", (user_id,)).fetchall()
 
-    # Optional filters
     asset_type = request.args.get("type")
     sort_by = request.args.get("sort")
     search = request.args.get("search", "").strip().lower()
@@ -110,15 +108,12 @@ def dashboard():
         avg_price = asset["avg_buy_price"]
         type_ = asset["asset_type"]
 
-        # Apply search filter
         if search and search not in symbol.lower():
             continue
 
-        # Apply type filter
         if asset_type and asset_type != type_:
             continue
 
-        # Price fetch logic
         current_price = get_crypto_price(symbol)
         if current_price is None:
             current_price = get_stock_price(symbol)
@@ -142,7 +137,6 @@ def dashboard():
             "unrealized_pnl": unrealized_pnl
         })
 
-    # Sorting logic
     if sort_by:
         reverse = True if sort_by in ["current_value", "unrealized_pnl", "current_price"] else False
         portfolio.sort(key=lambda x: x.get(sort_by, 0.0), reverse=reverse)
@@ -233,7 +227,6 @@ def edit_asset(symbol):
         flash("Asset updated successfully.", "success")
         return redirect("/dashboard")
 
-    # 🛠 FIXED: Pass required vars to HTML
     return render_template(
         "edit_asset.html",
         asset=asset,
@@ -280,7 +273,6 @@ def sell_asset(symbol):
         flash("Missing asset type.", "danger")
         return redirect("/dashboard")
 
-    # Get asset
     asset = db.execute(
         "SELECT * FROM assets WHERE user_id = ? AND LOWER(symbol) = LOWER(?) AND asset_type = ?",
         (user_id, symbol.lower(), asset_type)
@@ -305,7 +297,6 @@ def sell_asset(symbol):
             flash("You do not have enough quantity to sell.", "danger")
             return redirect(request.url)
 
-        # Get current price
         current_price = get_crypto_price(symbol)
         if current_price is None:
             current_price = get_stock_price(symbol)
@@ -313,19 +304,16 @@ def sell_asset(symbol):
             flash("Could not retrieve current market price.", "danger")
             return redirect(request.url)
 
-        # Calculate financials
         avg_buy_price = asset["avg_buy_price"]
         cost_basis = round(quantity_to_sell * avg_buy_price, 2)
         sale_value = round(quantity_to_sell * current_price, 2)
         realized_pnl = round(sale_value - cost_basis, 2)
 
-        # Insert into transactions
         db.execute(
             "INSERT INTO transactions (user_id, symbol, quantity, sell_price, cost_basis, realized_pnl, asset_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (user_id, symbol.upper(), quantity_to_sell, current_price, cost_basis, realized_pnl, asset_type)
         )
 
-        # Update or delete asset
         remaining_quantity = asset["quantity"] - quantity_to_sell
         if remaining_quantity <= 0:
             db.execute("DELETE FROM assets WHERE id = ?", (asset["id"],))
